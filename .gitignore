@@ -1,0 +1,41 @@
+# ============================================
+# PYTHON
+# ============================================
+# Byte-compiled files (Python creates these automatically)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment (installed packages)
+venv/
+.venv/
+env/
+
+# ============================================
+# SECRETS - NEVER COMMIT!
+# ============================================
+.env
+*.env
+.env.local
+.env.production
+
+# ============================================
+# IDE / EDITOR
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================
+# OPERATING SYSTEM
+# ============================================
+.DS_Store
+Thumbs.db
+
+# ============================================
+# PROJECT SPECIFIC
+# ============================================
+*.log
+logs/
+recordings/

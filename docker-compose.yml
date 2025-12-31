@@ -1,0 +1,132 @@
+# =============================================================================
+# VOICE AI PLATFORM - DOCKER COMPOSE
+# =============================================================================
+# This file defines ALL services needed to run our application.
+# One command (docker-compose up) starts everything!
+# =============================================================================
+
+# Version of docker-compose syntax (3.8 is modern and stable)
+version: "3.8"
+
+# =============================================================================
+# SERVICES - Each service is a container
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # SERVICE 1: Our FastAPI Application
+  # ---------------------------------------------------------------------------
+  app:
+    # Build from our Dockerfile in current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Container name (easier to reference)
+    container_name: voice-ai-app
+    
+    # Restart policy: always restart unless we manually stop it
+    restart: unless-stopped
+    
+    # Port mapping: HOST:CONTAINER
+    # localhost:8000 on your machine → port 8000 in container
+    ports:
+      - "8000:8000"
+    
+    # Environment variables (loaded from .env file)
+    env_file:
+      - .env
+    
+    # Extra environment variables
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/voiceai
+      - REDIS_URL=redis://redis:6379/0
+    
+    # Wait for these services to start first
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    
+    # Mount local code for development (changes reflect immediately)
+    volumes:
+      - ./src:/app/src:ro
+    
+    # Connect to our network
+    networks:
+      - voice-ai-network
+
+  # ---------------------------------------------------------------------------
+  # SERVICE 2: PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  db:
+    # Use official PostgreSQL image
+    image: postgres:15-alpine
+    
+    container_name: voice-ai-db
+    
+    restart: unless-stopped
+    
+    # Database configuration
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: voiceai
+    
+    # Port mapping (optional - for external tools like pgAdmin)
+    ports:
+      - "5432:5432"
+    
+    # Persist data even if container is deleted
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    # Health check: is database accepting connections?
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    networks:
+      - voice-ai-network
+
+  # ---------------------------------------------------------------------------
+  # SERVICE 3: Redis Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    # Use official Redis image (alpine = small)
+    image: redis:7-alpine
+    
+    container_name: voice-ai-redis
+    
+    restart: unless-stopped
+    
+    ports:
+      - "6379:6379"
+    
+    # Persist cache data
+    volumes:
+      - redis_data:/data
+    
+    networks:
+      - voice-ai-network
+
+# =============================================================================
+# VOLUMES - Persistent storage (survives container restarts)
+# =============================================================================
+volumes:
+  postgres_data:
+    name: voice-ai-postgres-data
+  redis_data:
+    name: voice-ai-redis-data
+
+# =============================================================================
+# NETWORKS - How containers communicate with each other
+# =============================================================================
+networks:
+  voice-ai-network:
+    name: voice-ai-network
+    driver: bridge
