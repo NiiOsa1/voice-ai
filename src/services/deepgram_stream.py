@@ -50,6 +50,8 @@ class DeepgramStreamClient:
             "utterance_end_ms": 1200,        # Backup for network issues
             "vad_events": "true",
             "smart_format": "true",           # Better formatting
+            "no_delay": "true",               # Return results immediately
+            "filler_words": "true",           # Catch um, uh, etc
         }
         
         query = "&".join(f"{k}={v}" for k, v in params.items())
