@@ -86,6 +86,8 @@ class CallHandler:
         self.heartbeat_task = None
         self.last_transcript_time = 0.0
         self.reconnecting = False
+        self.last_final_text = ""    # Track last processed text for echo detection
+        self.last_final_time = 0.0   # Track when it was said
 
     async def process_message(self, message: dict) -> None:
         """Process WebSocket message from Twilio."""
@@ -228,6 +230,16 @@ class CallHandler:
         self.last_transcript_time = asyncio.get_event_loop().time()
         
         if self.state == State.SPEAKING:
+            # Echo detection: ignore if same as last final transcript
+            text_clean = text.strip().lower().rstrip('.,!?')
+            last_clean = self.last_final_text.strip().lower().rstrip('.,!?')
+            time_since_final = asyncio.get_event_loop().time() - self.last_final_time
+            
+            # If same text within 2 seconds, it's an echo - ignore it
+            if text_clean == last_clean and time_since_final < 2.0:
+                logger.info(f"👻 Echo ignored: '{text}'")
+                return
+            
             logger.info(f"🛑 Barge-in: '{text}'")
             self.interrupted = True
             self.state = State.LISTENING
@@ -240,6 +252,8 @@ class CallHandler:
             return
         
         self.last_transcript_time = asyncio.get_event_loop().time()
+        self.last_final_text = text  # Store for echo detection
+        self.last_final_time = self.last_transcript_time
         
         if self.state in (State.PROCESSING, State.SPEAKING):
             return
