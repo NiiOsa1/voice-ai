@@ -42,11 +42,11 @@ class DeepgramStreamClient:
             "encoding": "mulaw",
             "sample_rate": 8000,
             "channels": 1,
-            "model": "nova-2-phonecall",      # Better for phone audio
+            "model": "nova-2-conversationalai",      # Better for phone audio
             "language": "en",
             "punctuate": "true",
             "interim_results": "true",
-            "endpointing": 700,              # Quick response
+            "endpointing": 500,              # Quick response
             "utterance_end_ms": 1500,        # Backup for network issues
             "vad_events": "true",
             "smart_format": "true",           # Better formatting
