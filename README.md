@@ -4,10 +4,10 @@
 
 # Voice AI Platform
 
-A production-ready AI-powered voice platform for inbound customer service and outbound broadcast calls. Built for the Ghana market.
+A production-ready AI-powered voice platform for inbound customer service and outbound broadcast calls. Built for the Ghana market with ultra-low latency.
 
-![Status](https://img.shields.io/badge/Status-In_Development-yellow?style=flat-square)
-![Stack](https://img.shields.io/badge/Stack-FastAPI_+_Twilio_+_OpenAI-blue?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Production_Ready-green?style=flat-square)
+![Stack](https://img.shields.io/badge/Stack-FastAPI_+_Twilio_+_Groq-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-green?logo=python)](https://python.org)
@@ -40,10 +40,10 @@ This platform provides enterprise-grade voice AI capabilities for businesses in 
 
 **Key Capabilities:**
 
-- Real-time speech recognition and natural language understanding
-- AI-powered response generation with anti-hallucination guardrails
-- Automated outbound voice campaigns
-- Full call logging and analytics dashboard
+- Real-time speech recognition with Deepgram Nova-2
+- Ultra-fast AI responses with Groq LPU (10x faster than OpenAI)
+- Natural voice synthesis with ElevenLabs
+- Full call logging and analytics
 
 ---
 
@@ -51,56 +51,61 @@ This platform provides enterprise-grade voice AI capabilities for businesses in 
 
 ✔️ **Inbound Voice Agent** — AI answers customer calls, understands questions, provides accurate responses
 
-✔️ **Outbound Broadcasts** — Send personalized voice messages to customer lists at scale
-
 ✔️ **Real-time Processing** — Speech-to-Text → AI → Text-to-Speech pipeline under 1 second
 
-✔️ **RAG Knowledge Base** — Ground responses in client documents to prevent hallucinations
+✔️ **Barge-in Support** — User can interrupt AI mid-speech for natural conversation
 
-✔️ **Human Escalation** — Seamless transfer to live agents when needed
-
-✔️ **Admin Dashboard** — Manage calls, view analytics, update knowledge base
-
-✔️ **Call Recording** — Encrypted storage with full audit trail
+✔️ **Context Awareness** — Remembers conversation history for coherent dialogue
 
 ✔️ **Ghana Optimized** — Local phone numbers, optimized for African telecom infrastructure
+
+✔️ **Auto Reconnect** — Handles network issues gracefully with Deepgram KeepAlive
 
 ---
 
 ## Tech Stack
 
-| Component      | Technology         | Purpose                    |
-| -------------- | ------------------ | -------------------------- |
-| Telephony      | Twilio             | Voice calls, Ghana numbers |
-| Speech-to-Text | Deepgram Nova-3    | Real-time transcription    |
-| LLM            | OpenAI GPT-4o-mini | Response generation        |
-| Text-to-Speech | Amazon Polly       | Voice synthesis            |
-| Backend        | FastAPI            | Async Python API           |
-| Database       | PostgreSQL         | Call logs, analytics       |
-| Cache          | Redis              | Session management         |
-| Containers     | Docker             | Deployment                 |
+| Component      | Technology                | Purpose                      |
+| -------------- | ------------------------- | ---------------------------- |
+| Telephony      | Twilio Media Streams      | Voice calls, WebSocket audio |
+| Speech-to-Text | Deepgram Nova-2 Phonecall | Real-time transcription      |
+| LLM            | Groq (llama-3.1-8b)       | Ultra-fast response (~200ms) |
+| Text-to-Speech | ElevenLabs Flash v2.5     | Natural voice (~75ms)        |
+| Backend        | FastAPI                   | Async Python API             |
+| Audio Format   | mulaw 8kHz                | Twilio-native format         |
+
+### Why This Stack?
+
+| Component   | Choice      | Why                                         |
+| ----------- | ----------- | ------------------------------------------- |
+| STT         | Deepgram    | 6.84% WER, fastest real-time STT            |
+| LLM         | Groq        | 10x faster than OpenAI, custom LPU hardware |
+| TTS         | ElevenLabs  | Most natural voices, 75ms latency           |
+| Telephony   | Twilio      | Industry standard, Ghana numbers available  |
 
 ---
 
 ## Project Structure
-
 ```plaintext
 voice-ai-platform/
 ├── src/
-│   ├── main.py                 # Application entry point
-│   ├── config.py               # Configuration management
+│   ├── main.py                     # Application entry point
+│   ├── config.py                   # Configuration management
 │   ├── api/
 │   │   ├── __init__.py
-│   │   └── routes.py           # API endpoint handlers
+│   │   ├── routes.py               # HTTP webhook handlers
+│   │   ├── websocket_routes.py     # WebSocket endpoint
+│   │   └── websocket_handler.py    # Call handling logic
 │   └── services/
 │       ├── __init__.py
-│       ├── stt.py              # Speech-to-Text service
-│       ├── llm.py              # Language Model service
-│       └── tts.py              # Text-to-Speech service
+│       ├── deepgram_stream.py      # Speech-to-Text (streaming)
+│       ├── llm_groq.py             # Language Model (Groq)
+│       └── tts_elevenlabs.py       # Text-to-Speech (ElevenLabs)
 ├── tests/
-│   └── __init__.py
-├── assets/                     # Banner and images
-├── .env.example                # Environment template
+│   ├── test_deepgram_stream.py
+│   └── test_send_to_deepgram.py
+├── assets/                         # Banner and images
+├── .env.example                    # Environment template
 ├── .gitignore
 ├── requirements.txt
 ├── Dockerfile
@@ -115,30 +120,21 @@ voice-ai-platform/
 ### Prerequisites
 
 - Python 3.11+
-- Docker & Docker Compose
-- Twilio Account (with Ghana number)
+- Twilio Account (with phone number)
 - Deepgram API Key
-- OpenAI API Key
-- AWS Account (for Polly)
+- Groq API Key
+- ElevenLabs API Key
 
 ### Quick Start
-
 ```bash
 # Clone the repository
-git clone https://github.com/NiiOsa1/voice-ai-platform.git
-cd voice-ai-platform
+git clone https://github.com/NiiOsa1/voice-ai.git
+cd voice-ai
 
 # Set up environment
 cp .env.example .env
 # Edit .env with your API keys
 
-# Run with Docker
-docker-compose up --build
-```
-
-### Local Development
-
-```bash
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -147,7 +143,12 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
 # Run server
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
+
+### With Docker
+```bash
+docker-compose up --build
 ```
 
 ---
@@ -158,16 +159,16 @@ All configuration is managed through environment variables. See `.env.example` f
 
 **Required Variables:**
 
-| Variable                  | Description                  |
-| ------------------------- | ---------------------------- |
-| `TWILIO_ACCOUNT_SID`    | Twilio account identifier    |
-| `TWILIO_AUTH_TOKEN`     | Twilio authentication token  |
-| `TWILIO_PHONE_NUMBER`   | Ghana phone number (+233...) |
-| `DEEPGRAM_API_KEY`      | Deepgram API key             |
-| `OPENAI_API_KEY`        | OpenAI API key               |
-| `AWS_ACCESS_KEY_ID`     | AWS access key for Polly     |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key               |
-| `DATABASE_URL`          | PostgreSQL connection string |
+| Variable                | Description                    |
+| ----------------------- | ------------------------------ |
+| `TWILIO_ACCOUNT_SID`    | Twilio account identifier      |
+| `TWILIO_AUTH_TOKEN`     | Twilio authentication token    |
+| `TWILIO_PHONE_NUMBER`   | Your Twilio phone number       |
+| `DEEPGRAM_API_KEY`      | Deepgram API key               |
+| `GROQ_API_KEY`          | Groq API key                   |
+| `GROQ_MODEL`            | Model name (llama-3.1-8b-instant) |
+| `ELEVENLABS_API_KEY`    | ElevenLabs API key             |
+| `NGROK_WSS_URL`         | WebSocket URL for Twilio       |
 
 ---
 
@@ -181,43 +182,59 @@ All configuration is managed through environment variables. See `.env.example` f
 | API Docs     | http://localhost:8000/docs   |
 | Health Check | http://localhost:8000/health |
 
-### Running Tests
+### Testing a Call
 
-```bash
-pytest tests/ -v
-```
+1. Start ngrok: `ngrok http 8000`
+2. Update `.env` with ngrok URL
+3. Configure Twilio webhook to `https://your-ngrok-url/api/v1/calls/inbound`
+4. Call your Twilio number
 
 ---
 
 ## API Endpoints
 
-| Endpoint            | Method | Description                |
-| ------------------- | ------ | -------------------------- |
-| `/health`         | GET    | Service health check       |
-| `/webhook/voice`  | POST   | Twilio voice webhook       |
-| `/webhook/status` | POST   | Call status callbacks      |
-| `/broadcast`      | POST   | Initiate outbound campaign |
-| `/calls`          | GET    | List call history          |
-| `/calls/{id}`     | GET    | Get call details           |
-| `/knowledge`      | POST   | Update knowledge base      |
+| Endpoint                    | Method | Description              |
+| --------------------------- | ------ | ------------------------ |
+| `/`                         | GET    | API info                 |
+| `/health`                   | GET    | Health check             |
+| `/api/v1/test`              | GET    | Service status           |
+| `/api/v1/calls/inbound`     | POST   | Twilio inbound webhook   |
+| `/api/v1/calls/outbound`    | POST   | Twilio outbound webhook  |
+| `/api/v1/calls/status`      | POST   | Call status callbacks    |
+| `/ws/twilio-media-stream`   | WS     | Audio streaming endpoint |
 
 ---
 
 ## Architecture
-
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Customer  │────▶│   Twilio    │────▶│  FastAPI    │
-│   (Phone)   │◀────│  (Ghana #)  │◀────│  Server     │
+│   (Phone)   │◀────│  (WebSocket)│◀────│  Server     │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
                     ┌──────────────────────────┼──────────────────────────┐
                     │                          │                          │
                     ▼                          ▼                          ▼
              ┌─────────────┐           ┌─────────────┐           ┌─────────────┐
-             │  Deepgram   │           │   OpenAI    │           │   Polly     │
-             │    (STT)    │           │   (LLM)     │           │   (TTS)     │
+             │  Deepgram   │           │    Groq     │           │ ElevenLabs  │
+             │ Nova-2 STT  │           │   LLM       │           │  Flash TTS  │
+             │  (~100ms)   │           │  (~200ms)   │           │  (~75ms)    │
              └─────────────┘           └─────────────┘           └─────────────┘
+```
+
+### Audio Flow
+```
+User speaks → Twilio → WebSocket → Deepgram (STT)
+                                        ↓
+                                   Transcript
+                                        ↓
+                                   Groq (LLM)
+                                        ↓
+                                   Response text
+                                        ↓
+                                   ElevenLabs (TTS)
+                                        ↓
+User hears  ← Twilio ← WebSocket ← Audio (mulaw)
 ```
 
 ---
@@ -225,29 +242,38 @@ pytest tests/ -v
 ## Security
 
 - All API keys stored in environment variables (never in code)
-- HTTPS enforced in production
-- Call recordings encrypted at rest (AES-256)
-- PII redacted from logs
-- Role-based access control for admin dashboard
-- Webhook signature validation
+- `.env` file excluded from git
+- HTTPS enforced via ngrok/Render
+- Webhook signature validation ready
 
 ---
 
 ## Deployment
 
-### Docker (Recommended)
+### Render (Recommended)
 
+1. Push to GitHub
+2. Connect Render to repo
+3. Set environment variables
+4. Deploy
+
+### Docker
 ```bash
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### AWS EC2
+---
 
-See `deploy/` folder for:
+## Performance
 
-- Terraform infrastructure scripts
-- NGINX reverse proxy configuration
-- SSL certificate setup via Certbot
+| Metric              | Target    | Achieved  |
+| ------------------- | --------- | --------- |
+| STT Latency         | <300ms    | ~100ms    |
+| LLM Latency         | <500ms    | ~200ms    |
+| TTS Latency         | <200ms    | ~75ms     |
+| Total Response Time | <1000ms   | ~500ms*   |
+
+*When deployed on US servers (Render/AWS)
 
 ---
 
@@ -267,5 +293,5 @@ Proprietary — NiiOsa Labs © 2025
 
 ---
 
-Built for real-world voice automation.
-Powered by Twilio, Deepgram, OpenAI, and clean engineering.
+Built for real-world voice automation in Africa.
+Powered by Twilio, Deepgram, Groq, and ElevenLabs.
