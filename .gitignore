@@ -39,3 +39,12 @@ Thumbs.db
 *.log
 logs/
 recordings/
+
+# ============================================
+# TEST AUDIO FILES
+# ============================================
+*.mp3
+*.wav
+*.raw
+*.save
+pytest.ini

@@ -1,192 +1,168 @@
 """
-Voice AI Platform - API Routes.
+HTTP Routes for Twilio Voice Webhooks.
 
-This file contains all the endpoints (URLs) for handling voice calls.
-Twilio will call these URLs when phone events happen.
+WHY THIS FILE EXISTS:
+- Twilio calls these endpoints when calls arrive
+- We respond with TwiML instructions
+- TwiML tells Twilio to connect to our WebSocket
+
+ENDPOINTS:
+    POST /api/v1/calls/inbound   - When someone calls your number
+    POST /api/v1/calls/outbound  - When you make an outbound call
+    POST /api/v1/calls/status    - Call status updates
+    GET  /api/v1/test            - Health check
+
+TWIML:
+    TwiML (Twilio Markup Language) is XML that tells Twilio what to do.
+    <Connect><Stream url="..."/></Connect> starts audio streaming.
 """
 
-# =============================================================================
-# IMPORTS
-# =============================================================================
-
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import Response
-from typing import Optional
 import logging
-from datetime import datetime
+from fastapi import APIRouter, Form
+from fastapi.responses import Response
 
-
-# =============================================================================
-# SETUP
-# =============================================================================
+from src.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Create router for HTTP routes
 router = APIRouter()
 
 
-# =============================================================================
-# HELPER FUNCTION
-# =============================================================================
-
-def create_twiml_response(twiml_content: str) -> Response:
+def twiml_response(content: str) -> Response:
     """
-    Create a TwiML XML response for Twilio.
+    Create a TwiML XML response.
     
-    Parameters:
-        twiml_content: The TwiML commands (e.g., <Say>Hello</Say>)
-        
+    Args:
+        content: The TwiML elements (inside <Response>)
+    
     Returns:
-        Response: FastAPI Response with XML content type
-    """
-    xml_response = f'''<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    {twiml_content}
-</Response>'''
+        FastAPI Response with correct content-type
     
-    return Response(content=xml_response, media_type="application/xml")
+    EXAMPLE:
+        twiml_response('<Say>Hello</Say>')
+        
+        Returns:
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+            <Say>Hello</Say>
+        </Response>
+    """
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><Response>{content}</Response>'
+    
+    return Response(
+        content=xml,
+        media_type="application/xml"
+    )
 
-
-# =============================================================================
-# TEST ROUTE
-# =============================================================================
 
 @router.get("/test")
-async def test_route():
+async def test():
     """
-    Simple test route to verify the router is working.
+    Health check endpoint.
     
-    URL: GET /api/v1/test
+    Use this to verify:
+    1. Server is running
+    2. Configuration is loaded
+    3. ngrok is working
+    
+    Test with:
+        curl https://your-ngrok-url/api/v1/test
     """
-    return {"message": "Router is working!", "status": "ok"}
+    return {
+        "status": "ok",
+        "websocket_url": settings.ngrok_wss_url,
+        "services": {
+            "deepgram": bool(settings.deepgram_api_key),
+            "groq": bool(settings.groq_api_key),
+            "elevenlabs": bool(settings.elevenlabs_api_key),
+        }
+    }
 
-
-# =============================================================================
-# INBOUND CALL WEBHOOK
-# =============================================================================
 
 @router.post("/calls/inbound")
 async def handle_inbound_call(
     CallSid: str = Form(...),
-    From: str = Form(...),
-    To: str = Form(...),
-    CallStatus: str = Form(None),
-    Direction: str = Form(None),
-    CallerCity: str = Form(None),
-    CallerCountry: str = Form(None),
+    From: str = Form(default=""),
+    To: str = Form(default=""),
 ):
     """
-    Handle incoming phone calls.
+    Handle inbound calls (when someone calls your Twilio number).
     
-    Twilio calls this webhook when someone dials your Twilio number.
+    Twilio POSTs here with call details:
+    - CallSid: Unique identifier for this call
+    - From: Caller's phone number
+    - To: Your Twilio number
     
-    URL: POST /api/v1/calls/inbound
+    We respond with TwiML that tells Twilio to:
+    1. Connect to our WebSocket for audio streaming
+    
+    The WebSocket handler takes over from there.
     """
-    logger.info("=" * 50)
-    logger.info("INCOMING CALL")
-    logger.info(f"  Call ID: {CallSid}")
-    logger.info(f"  From: {From}")
-    logger.info(f"  To: {To}")
-    logger.info(f"  Status: {CallStatus}")
-    logger.info(f"  Location: {CallerCity}, {CallerCountry}")
-    logger.info("=" * 50)
-    
-    greeting = '''
-        <Say voice="alice" language="en-US">
-            Hello! Welcome to Voice AI Platform. 
-            This is a test of the inbound call system.
-            Thank you for calling. Goodbye!
-        </Say>
-    '''
-    
-    return create_twiml_response(greeting)
+    logger.info(f"📞 Inbound call: {CallSid}")
+    logger.info(f"   From: {From}")
+    logger.info(f"   To: {To}")
 
+    # Get WebSocket URL from settings
+    stream_url = settings.ngrok_wss_url
+    
+    if not stream_url:
+        logger.error("❌ NGROK_WSS_URL not configured!")
+        return twiml_response('<Say>System error. Please try again later.</Say>')
 
-# =============================================================================
-# OUTBOUND CALL WEBHOOK
-# =============================================================================
+    # Respond with TwiML to connect to our WebSocket
+    # <Connect><Stream> tells Twilio to open a WebSocket and stream audio
+    return twiml_response(f'<Connect><Stream url="{stream_url}" /></Connect>')
+
 
 @router.post("/calls/outbound")
 async def handle_outbound_call(
     CallSid: str = Form(...),
-    From: str = Form(...),
-    To: str = Form(...),
-    CallStatus: str = Form(None),
-    Direction: str = Form(None),
+    From: str = Form(default=""),
+    To: str = Form(default=""),
 ):
     """
-    Handle outbound call connections.
+    Handle outbound calls (when you call someone using Twilio).
     
-    When you initiate a call to a customer and they answer,
-    Twilio calls this webhook to get instructions.
-    
-    URL: POST /api/v1/calls/outbound
+    Same as inbound - we connect to our WebSocket for audio streaming.
+    The only difference is who initiated the call.
     """
-    logger.info("=" * 50)
-    logger.info("OUTBOUND CALL CONNECTED")
-    logger.info(f"  Call ID: {CallSid}")
-    logger.info(f"  From (us): {From}")
-    logger.info(f"  To (customer): {To}")
-    logger.info(f"  Status: {CallStatus}")
-    logger.info("=" * 50)
-    
-    message = '''
-        <Say voice="alice" language="en-US">
-            Hello! This is an automated call from Voice AI Platform.
-            This is a test of the outbound call system.
-            Thank you for your time. Goodbye!
-        </Say>
-    '''
-    
-    return create_twiml_response(message)
+    logger.info(f"📞 Outbound call: {CallSid}")
+    logger.info(f"   From: {From}")
+    logger.info(f"   To: {To}")
 
+    stream_url = settings.ngrok_wss_url
+    
+    if not stream_url:
+        logger.error("❌ NGROK_WSS_URL not configured!")
+        return twiml_response('<Say>System error. Please try again later.</Say>')
 
-# =============================================================================
-# CALL STATUS WEBHOOK
-# =============================================================================
+    return twiml_response(f'<Connect><Stream url="{stream_url}" /></Connect>')
+
 
 @router.post("/calls/status")
 async def handle_call_status(
     CallSid: str = Form(...),
     CallStatus: str = Form(...),
-    From: str = Form(None),
-    To: str = Form(None),
-    Direction: str = Form(None),
-    CallDuration: Optional[str] = Form(None),
+    CallDuration: str = Form(default="0"),
 ):
     """
     Handle call status updates from Twilio.
     
-    Twilio calls this webhook whenever a call's status changes.
+    Twilio sends status updates throughout the call:
+    - initiated: Call is starting
+    - ringing: Phone is ringing
+    - in-progress: Call is connected
+    - completed: Call ended normally
+    - busy: Recipient is busy
+    - no-answer: No one answered
+    - failed: Call failed
     
-    URL: POST /api/v1/calls/status
+    Useful for:
+    - Logging call history
+    - Tracking call duration
+    - Debugging issues
     """
-    logger.info("=" * 50)
-    logger.info("CALL STATUS UPDATE")
-    logger.info(f"  Call ID: {CallSid}")
-    logger.info(f"  Status: {CallStatus}")
-    logger.info(f"  From: {From}")
-    logger.info(f"  To: {To}")
-    logger.info(f"  Duration: {CallDuration} seconds")
-    logger.info("=" * 50)
+    logger.info(f"📊 Call status: {CallSid} → {CallStatus} (duration: {CallDuration}s)")
     
-    if CallStatus == "completed":
-        logger.info(f"Call {CallSid} completed successfully")
-        
-    elif CallStatus == "no-answer":
-        logger.info(f"Call {CallSid} - No answer")
-        
-    elif CallStatus == "busy":
-        logger.info(f"Call {CallSid} - Line busy")
-        
-    elif CallStatus == "failed":
-        logger.info(f"Call {CallSid} - Failed")
-        
-    elif CallStatus == "in-progress":
-        logger.info(f"Call {CallSid} - In progress")
-    
-    return {
-        "received": True,
-        "call_sid": CallSid,
-        "status": CallStatus,
-        "timestamp": datetime.now().isoformat()
-    }
+    return {"status": "received"}
