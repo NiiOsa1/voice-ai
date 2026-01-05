@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     )
     
     debug: bool = Field(
-        default=True,
+        default=False,
         description="Enable debug logging"
     )
     
