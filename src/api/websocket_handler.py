@@ -240,6 +240,13 @@ class CallHandler:
                 logger.info(f"👻 Echo ignored: '{text}'")
                 return
             
+            # Require minimum 3 words to trigger barge-in
+            # Prevents false triggers from single words, throat clearing, etc.
+            word_count = len(text.strip().split())
+            if word_count < 3:
+                logger.info(f"👂 Partial too short ({word_count} words): '{text}'")
+                return
+            
             logger.info(f"🛑 Barge-in: '{text}'")
             self.interrupted = True
             self.state = State.LISTENING
