@@ -46,8 +46,8 @@ class DeepgramStreamClient:
             "language": "en",
             "punctuate": "true",
             "interim_results": "true",
-            "endpointing": 300,              # Quick response
-            "utterance_end_ms": 1200,        # Backup for network issues
+            "endpointing": 700,              # Quick response
+            "utterance_end_ms": 1500,        # Backup for network issues
             "vad_events": "true",
             "smart_format": "true",           # Better formatting
             "no_delay": "true",               # Return results immediately
