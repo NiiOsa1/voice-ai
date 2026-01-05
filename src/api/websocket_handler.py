@@ -4,7 +4,7 @@ WebSocket Handler - PRODUCTION GRADE
 Features:
 - Natural conversation flow (no repetitive phrases)
 - Context-aware responses (remembers conversation)
-- Filters incomplete inputs
+- Filters garbage inputs only
 - Deepgram KeepAlive
 - Barge-in support
 - Auto-reconnect
@@ -58,14 +58,6 @@ When user says bye/goodbye: "Alright, take care!"
 GREETING = "Hello! I'm Nana Ama, what's on your mind?"
 
 GOODBYE_PHRASES = ["bye", "goodbye", "see you", "take care", "hang up", "end call", "later"]
-
-# Valid short inputs that deserve a response
-VALID_SHORT_INPUTS = [
-    "hello", "hi", "hey", "bye", "goodbye", "yes", "no", "okay", "ok", 
-    "sure", "thanks", "thank you", "please", "what", "why", "how", "when",
-    "good", "great", "fine", "cool", "nice", "wow", "really", "seriously",
-    "yeah", "yep", "nope", "alright", "right"
-]
 
 
 class State(Enum):
@@ -254,20 +246,12 @@ class CallHandler:
         
         logger.info(f"👤 User: {text}")
         
-        # Filter incomplete inputs to prevent hallucination
-        words = text.split()
-        if len(words) <= 2:
-            text_lower = text.lower().strip(".,?!:")
-            
-            is_valid = False
-            for valid in VALID_SHORT_INPUTS:
-                if valid in text_lower:
-                    is_valid = True
-                    break
-            
-            if not is_valid:
-                logger.info(f"⏭️ Skipping incomplete: '{text}'")
-                return
+        # Filter only garbage inputs (too short to be meaningful)
+        # This allows all real speech through, only blocks punctuation-only or empty
+        clean_text = text.strip()
+        if len(clean_text) < 2 or clean_text in [".", ",", "?", "!", "-"]:
+            logger.info(f"⏭️ Skipping garbage: '{text}'")
+            return
         
         text_lower = text.lower()
         if any(phrase in text_lower for phrase in GOODBYE_PHRASES):
