@@ -220,7 +220,7 @@ class CallHandler:
                 if self.deepgram and self.deepgram_ready:
                     await self.deepgram.send_audio(audio)
                     chunks += 1
-                    if chunks % 100 == 0:
+                    if chunks % 500 == 0:
                         logger.info(f"🎙️ Sent {chunks} chunks")
             except asyncio.TimeoutError:
                 continue
