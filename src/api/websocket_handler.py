@@ -346,6 +346,7 @@ class CallHandler:
                     "media": {"payload": payload}
                 })
                 
+                await asyncio.sleep(0)
                 await asyncio.sleep(0.035)  # 35ms = closer to real-time playback
             
             if not self.interrupted:
