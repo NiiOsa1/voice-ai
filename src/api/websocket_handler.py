@@ -346,7 +346,7 @@ class CallHandler:
                     "media": {"payload": payload}
                 })
                 
-                await asyncio.sleep(0.005)
+                await asyncio.sleep(0.035)  # 35ms = closer to real-time playback
             
             if not self.interrupted:
                 await self.websocket.send_json({
