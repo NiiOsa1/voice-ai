@@ -9,6 +9,7 @@ Features:
 - Barge-in support
 - Auto-reconnect
 - Duplicate transcript detection
+- Incomplete sentence detection
 """
 
 import json
@@ -66,6 +67,18 @@ When user says bye/goodbye: "Alright, take care!"
 GREETING = "Hello! Nana Ama here. How can I help you today?"
 
 GOODBYE_PHRASES = ["bye", "goodbye", "see you", "take care", "hang up", "end call", "later"]
+
+# Endings that suggest the user hasn't finished speaking
+INCOMPLETE_ENDINGS = [
+    " so", " and", " but", " the", " a", " an", " to", " for",
+    " with", " in", " on", " of", " that", " which", " who",
+    " what", " how", " why", " when", " where", " if", " or",
+    " like", " about", " from", " into", " somebody", " someone",
+    ",", " i", " you", " they", " we", " it", " is", " are",
+    " my", " your", " our", " their", " this", " these", " those",
+    " can", " will", " would", " could", " should", " may", " might",
+    " do", " does", " did", " have", " has", " had", " been", " being"
+]
 
 
 class State(Enum):
@@ -280,16 +293,29 @@ class CallHandler:
         if self.state in (State.PROCESSING, State.SPEAKING):
             return
         
-        logger.info(f"👤 User: {text}")
-        
         # Filter only garbage inputs (too short to be meaningful)
-        # This allows all real speech through, only blocks punctuation-only or empty
         clean_text = text.strip()
         if len(clean_text) < 2 or clean_text in [".", ",", "?", "!", "-"]:
             logger.info(f"⏭️ Skipping garbage: '{text}'")
             return
         
+        # INCOMPLETE SENTENCE DETECTION: Wait if sentence seems unfinished
         text_lower = text.lower()
+        if any(text_lower.endswith(ending) for ending in INCOMPLETE_ENDINGS):
+            logger.info(f"⏳ Incomplete sentence, waiting: '{text}'")
+            await asyncio.sleep(1.5)  # Wait 1.5s for user to continue
+            
+            # Check if new transcript came in while waiting
+            if self.last_final_text != text:
+                logger.info(f"✅ User continued speaking, skipping old transcript")
+                return
+            
+            # Also skip if state changed (user is still talking)
+            if self.state in (State.PROCESSING, State.SPEAKING):
+                return
+        
+        logger.info(f"👤 User: {text}")
+        
         if any(phrase in text_lower for phrase in GOODBYE_PHRASES):
             self.should_hangup = True
             await self._speak("Thanks for calling! Take care now.")
