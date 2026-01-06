@@ -78,7 +78,7 @@ class GroqLLMService:
 
         # 2. Conversation history - keep last 4 for speed
         if conversation_history:
-            messages.extend(conversation_history[-4:])
+            messages.extend(conversation_history[-12:])  # Last 12 messages = 6 exchanges
 
         # 3. Current user message - always last
         messages.append({
