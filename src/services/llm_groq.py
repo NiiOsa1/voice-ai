@@ -128,7 +128,7 @@ class GroqLLMService:
             stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=60,       # Keep responses short for voice
+                max_tokens=120,       # Keep responses short for voice
                 temperature=0.7,     # Balanced creativity
                 stream=True,         # ✅ KEY OPTIMIZATION!
             )
@@ -193,7 +193,7 @@ class GroqLLMService:
             stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=60,
+                max_tokens=120,
                 temperature=0.7,
                 stream=True,
             )
