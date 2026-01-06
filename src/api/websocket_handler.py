@@ -9,7 +9,7 @@ Features:
 - Barge-in support
 - Auto-reconnect
 - Duplicate transcript detection
-- Incomplete sentence detection
+- Smart incomplete sentence detection
 """
 
 import json
@@ -68,16 +68,16 @@ GREETING = "Hello! Nana Ama here. How can I help you today?"
 
 GOODBYE_PHRASES = ["bye", "goodbye", "see you", "take care", "hang up", "end call", "later"]
 
-# Endings that suggest the user hasn't finished speaking
+# Only TRULY incomplete patterns - minimizes false pauses
 INCOMPLETE_ENDINGS = [
-    " so", " and", " but", " the", " a", " an", " to", " for",
-    " with", " in", " on", " of", " that", " which", " who",
-    " what", " how", " why", " when", " where", " if", " or",
-    " like", " about", " from", " into", " somebody", " someone",
-    ",", " i", " you", " they", " we", " it", " is", " are",
-    " my", " your", " our", " their", " this", " these", " those",
-    " can", " will", " would", " could", " should", " may", " might",
-    " do", " does", " did", " have", " has", " had", " been", " being"
+    ",",                                    # Comma = definitely more coming
+    " the", " a", " an",                    # Articles never end sentences
+    " to", " for", " with", " in", " on",   # Prepositions
+    " of", " from", " into", " about",      # More prepositions
+    " if", " that", " which", " who",       # Incomplete clauses
+    " and", " but", " or",                  # Conjunctions
+    " is", " are", " was", " were",         # Incomplete verb phrases
+    " my", " your", " our", " their",       # Possessives before noun
 ]
 
 
@@ -262,7 +262,6 @@ class CallHandler:
                 return
             
             # Require minimum 3 words to trigger barge-in
-            # Prevents false triggers from single words, throat clearing, etc.
             word_count = len(text.strip().split())
             if word_count < 3:
                 logger.info(f"👂 Partial too short ({word_count} words): '{text}'")
@@ -293,24 +292,23 @@ class CallHandler:
         if self.state in (State.PROCESSING, State.SPEAKING):
             return
         
-        # Filter only garbage inputs (too short to be meaningful)
+        # Filter garbage inputs
         clean_text = text.strip()
         if len(clean_text) < 2 or clean_text in [".", ",", "?", "!", "-"]:
             logger.info(f"⏭️ Skipping garbage: '{text}'")
             return
         
-        # INCOMPLETE SENTENCE DETECTION: Wait if sentence seems unfinished
+        # SMART INCOMPLETE DETECTION: Only wait for truly incomplete patterns
         text_lower = text.lower()
         if any(text_lower.endswith(ending) for ending in INCOMPLETE_ENDINGS):
-            logger.info(f"⏳ Incomplete sentence, waiting: '{text}'")
-            await asyncio.sleep(1.5)  # Wait 1.5s for user to continue
+            logger.info(f"⏳ Incomplete, waiting 1s: '{text}'")
+            await asyncio.sleep(1.0)  # Short 1s wait
             
-            # Check if new transcript came in while waiting
+            # Check if user continued speaking
             if self.last_final_text != text:
-                logger.info(f"✅ User continued speaking, skipping old transcript")
+                logger.info(f"✅ User continued, skipping fragment")
                 return
             
-            # Also skip if state changed (user is still talking)
             if self.state in (State.PROCESSING, State.SPEAKING):
                 return
         
@@ -327,11 +325,10 @@ class CallHandler:
         self.state = State.PROCESSING
         
         try:
-            # Use more conversation history for context (8 messages = 4 exchanges)
             response = await groq_llm.generate_response(
                 user_message=user_text,
                 system_prompt=SYSTEM_PROMPT,
-                conversation_history=self.conversation_history[-16:]  # Last 16 messages = 8 exchanges
+                conversation_history=self.conversation_history[-16:]
             )
             
             if not response:
@@ -381,7 +378,7 @@ class CallHandler:
                 })
                 
                 await asyncio.sleep(0)
-                await asyncio.sleep(0.035)  # 35ms = closer to real-time playback
+                await asyncio.sleep(0.035)
             
             if not self.interrupted:
                 await self.websocket.send_json({
