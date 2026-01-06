@@ -8,6 +8,7 @@ Features:
 - Deepgram KeepAlive
 - Barge-in support
 - Auto-reconnect
+- Duplicate transcript detection
 """
 
 import json
@@ -265,9 +266,16 @@ class CallHandler:
         if not text:
             return
         
-        self.last_transcript_time = asyncio.get_event_loop().time()
-        self.last_final_text = text  # Store for echo detection
-        self.last_final_time = self.last_transcript_time
+        current_time = asyncio.get_event_loop().time()
+        
+        # DEDUPLICATE: Ignore if same transcript within 2 seconds
+        if text == self.last_final_text and (current_time - self.last_final_time) < 2.0:
+            logger.info(f"🔄 Duplicate ignored: '{text[:30]}...'")
+            return
+        
+        self.last_transcript_time = current_time
+        self.last_final_text = text
+        self.last_final_time = current_time
         
         if self.state in (State.PROCESSING, State.SPEAKING):
             return
