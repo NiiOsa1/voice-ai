@@ -128,9 +128,9 @@ class GroqLLMService:
             stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=100,       # Keep responses short for voice
+                max_tokens=150,       # Keep responses short for voice
                 temperature=0.7,     # Balanced creativity
-                stream=True,         # ✅ KEY OPTIMIZATION!
+                stream=False,         # ✅ KEY OPTIMIZATION!
             )
 
             # Collect all chunks into complete response
@@ -139,7 +139,8 @@ class GroqLLMService:
                 delta = chunk.choices[0].delta
                 if delta.content:
                     full_response += delta.content
-
+            
+            full_response = response.choices[0].message.content or ""
             full_response = full_response.strip()
             
             logger.info(f"🤖 Groq response: {full_response[:50]}...")
