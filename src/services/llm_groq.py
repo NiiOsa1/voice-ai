@@ -116,7 +116,6 @@ class GroqLLMService:
                 max_completion_tokens=1024,
                 temperature=0.7,
                 stream=False,
-                include_reasoning=False,
             )
 
             full_response = response.choices[0].message.content or ""
@@ -158,7 +157,6 @@ class GroqLLMService:
                 max_completion_tokens=1024,
                 temperature=0.7,
                 stream=True,
-                include_reasoning=False,
             )
 
             for chunk in stream:
