@@ -95,21 +95,7 @@ class GroqLLMService:
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Optional[str]:
         """
-        Generate AI response with streaming (faster TTFT).
-        
-        Uses stream=True internally for faster start, but returns
-        complete response for easy integration.
-        
-        OPTIMIZATION: Streaming starts processing immediately,
-        reducing perceived latency by ~100-200ms.
-        
-        Args:
-            user_message: What the user just said
-            system_prompt: Instructions for AI personality/behavior
-            conversation_history: Previous messages for context
-        
-        Returns:
-            AI response text, or None if error
+        Generate AI response (non-streaming for GPT-OSS-20B compatibility test).
         """
         if not self.client:
             logger.error("❌ Groq client not initialized")
@@ -122,24 +108,17 @@ class GroqLLMService:
                 conversation_history
             )
 
-            logger.debug(f"🧠 Streaming from Groq: {user_message[:50]}...")
+            logger.debug(f"🧠 Calling Groq: {user_message[:50]}...")
 
-            # ✅ STREAMING ENABLED - faster TTFT!
-            stream = self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=150,       # Keep responses short for voice
-                temperature=0.7,     # Balanced creativity
-                stream=False,         # ✅ KEY OPTIMIZATION!
+                max_completion_tokens=1024,
+                temperature=0.7,
+                stream=False,
+                include_reasoning=False,
             )
 
-            # Collect all chunks into complete response
-            full_response = ""
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    full_response += delta.content
-            
             full_response = response.choices[0].message.content or ""
             full_response = full_response.strip()
             
@@ -159,24 +138,6 @@ class GroqLLMService:
     ) -> AsyncGenerator[str, None]:
         """
         Stream AI response token by token.
-        
-        ADVANCED: Use this to pipe tokens directly to TTS for minimum latency.
-        Enables "sentence-by-sentence" TTS for natural conversation flow.
-        
-        USAGE EXAMPLE:
-            buffer = ""
-            async for token in groq_llm.stream_response(...):
-                buffer += token
-                # Send to TTS when we hit punctuation
-                if any(buffer.rstrip().endswith(p) for p in '.!?,'):
-                    await tts.speak(buffer)
-                    buffer = ""
-            # Don't forget remaining buffer
-            if buffer.strip():
-                await tts.speak(buffer)
-        
-        Yields:
-            Individual tokens as they're generated
         """
         if not self.client:
             logger.error("❌ Groq client not initialized")
@@ -194,9 +155,10 @@ class GroqLLMService:
             stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=100,
+                max_completion_tokens=1024,
                 temperature=0.7,
                 stream=True,
+                include_reasoning=False,
             )
 
             for chunk in stream:
@@ -206,7 +168,6 @@ class GroqLLMService:
 
         except Exception as e:
             logger.error(f"❌ Groq stream error: {e}")
-
 
 # ─────────────────────────────────────────────────────────────────
 # SINGLETON INSTANCE
