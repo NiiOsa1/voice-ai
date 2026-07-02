@@ -110,15 +110,20 @@ class GroqLLMService:
 
             logger.debug(f"🧠 Calling Groq: {user_message[:50]}...")
 
-            response = self.client.chat.completions.create(
+            stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 max_completion_tokens=1024,
                 temperature=0.7,
-                stream=False,
+                stream=True,
             )
 
-            full_response = response.choices[0].message.content or ""
+            full_response = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    full_response += delta.content
+
             full_response = full_response.strip()
             
             logger.info(f"🤖 Groq response: {full_response[:50]}...")
