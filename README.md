@@ -166,7 +166,7 @@ All configuration is managed through environment variables. See `.env.example` f
 | `TWILIO_PHONE_NUMBER`   | Your Twilio phone number       |
 | `DEEPGRAM_API_KEY`      | Deepgram API key               |
 | `GROQ_API_KEY`          | Groq API key                   |
-| `GROQ_MODEL`            | Model name (openai/gpt-oss-20b) |
+| `GROQ_MODEL`            | Model name (openai/gpt-oss-20b)|
 | `ELEVENLABS_API_KEY`    | ElevenLabs API key             |
 | `NGROK_WSS_URL`         | WebSocket URL for Twilio       |
 
