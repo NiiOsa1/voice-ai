@@ -42,7 +42,7 @@ class DeepgramStreamClient:
             "encoding": "mulaw",
             "sample_rate": 8000,
             "channels": 1,
-            "model": "nova-2-conversationalai",      # Better for phone audio
+            "model": "nova-3",                # Same model Ama uses; nova-2 variants are legacy
             "language": "en",
             "punctuate": "true",
             "interim_results": "true",
@@ -51,7 +51,6 @@ class DeepgramStreamClient:
             "vad_events": "true",
             "smart_format": "true",           # Better formatting
             "no_delay": "true",               # Return results immediately
-            "filler_words": "true",           # Catch um, uh, etc
         }
         
         query = "&".join(f"{k}={v}" for k, v in params.items())
@@ -138,6 +137,21 @@ class DeepgramStreamClient:
                             else:
                                 if self.on_partial:
                                     asyncio.create_task(self.on_partial(transcript))
+                        else:
+                            logger.debug("Deepgram: empty transcript (silence)")
+
+                elif msg_type == "Metadata":
+                    logger.info(
+                        f"ℹ️ Deepgram metadata: request_id={data.get('request_id')} "
+                        f"model_info={data.get('model_info')}"
+                    )
+
+                elif msg_type in ("Error", "Warning"):
+                    # Deepgram's own explanation of what it rejected - never discard this
+                    logger.error(f"❌ Deepgram {msg_type}: {data}")
+
+                else:
+                    logger.info(f"ℹ️ Deepgram message: {msg_type} {str(data)[:200]}")
                                     
         except websockets.exceptions.ConnectionClosed:
             logger.warning("⚠️ Deepgram connection closed")
